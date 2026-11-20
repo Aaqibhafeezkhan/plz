@@ -369,7 +369,7 @@ await py.runPythonAsync(code);
       <pre class="code"><code>{
   "sandbox": {
     "enabled": true,
-    "filesystem": { "denyRead": ["~/.ssh"] },
+    
     "network": {
       "allowedDomains": ["pypi.org", "files.pythonhosted.org"]
     }
@@ -406,16 +406,16 @@ pivot = df.pivot_table(index="month", values="amount")
 
     <section class="chapter" data-scene="compare">
       <h2><span class="n">10</span><span>무엇을 고를까</span></h2>
-      <p>네 방식에 같은 탈출 시도를 보내 보면 차이가 한눈에 보입니다. 코드가 상자를 벗어나 호스트의 키 파일에 닿으려 할 때, 네 방식 모두 막지만 막는 층이 다릅니다. 막는 층이 아래에 있을수록, 그리고 코드와 호스트 사이의 층이 많을수록 뚫기 어렵습니다.</p>
+      <p>네 방식에 같은 두 단계 시도를 보내 봅시다. 먼저 호스트의 키 파일을 읽고, 다음으로 읽은 키를 <code>example.net</code>으로 보냅니다. 컨테이너와 마이크로VM은 키 파일이 게스트에 전달되지 않았다는 전제에서 호스트 파일 읽기를 경계에서 막고, WASM은 키 파일이나 외부 전송 기능을 런타임이 따로 건네지 않는 한 쓸 수 없습니다. 반면 여기서 다루는 기본 OS 샌드박스는 키 파일 읽기를 허용하지만, 허용 목록에 없는 <code>example.net</code>으로 보내는 요청은 프록시에서 막습니다. OS 샌드박스에서 읽기까지 막으려면 <code>denyRead</code>를 설정해야 합니다. 막는 층이 아래에 있을수록, 그리고 코드와 호스트 사이의 층이 많을수록 뚫기 어렵습니다.</p>
       <p>아래 표는 지금까지의 장을 정리한 것입니다. 무게와 시작 속도는 확인된 비교 수치가 없어서 정성적으로 적었고, 이것은 이 페이지의 판단입니다. 특정 제품을 추천하지 않습니다. 고를 때는 "무엇을 지키려는가(내 노트북, 여러 사용자가 함께 쓰는 서버)"와 "코드에 어떤 도구가 필요한가"를 먼저 정합니다.</p>
       <h3>누가 대답하고, 무엇을 넘어야 하나</h3>
       <table>
-        <thead><tr><th scope="col">방식</th><th scope="col">시스템 콜에 대답하는 쪽</th><th scope="col">호스트에 닿으려면 넘을 것</th></tr></thead>
+        <thead><tr><th scope="col">방식</th><th scope="col">시스템 콜에 대답하는 쪽</th><th scope="col">호스트에 닿으려면 넘을 것</th><th scope="col">키 읽기 / 외부 전송</th></tr></thead>
         <tbody>
-          <tr><th scope="row">컨테이너 +gVisor</th><td>gVisor의 대리 커널(없으면 호스트 커널)</td><td>네임스페이스 벽, 대리 커널</td></tr>
-          <tr><th scope="row">마이크로VM</th><td>VM마다 따로 있는 게스트 커널</td><td>게스트 커널, 하이퍼바이저</td></tr>
-          <tr><th scope="row">WASM</th><td>런타임이 넣어 준 함수</td><td>WASM 상자, 바깥 런타임의 권한</td></tr>
-          <tr><th scope="row">OS 샌드박스</th><td>호스트 커널(정책을 걸어 둠)</td><td>쓰기·네트워크 정책. 커널은 공유</td></tr>
+          <tr><th scope="row">컨테이너 +gVisor</th><td>gVisor의 대리 커널(없으면 호스트 커널)</td><td>네임스페이스 벽, 대리 커널</td><td>호스트 키 파일은 컨테이너에 전달되지 않아 읽을 수 없습니다.</td></tr>
+          <tr><th scope="row">마이크로VM</th><td>VM마다 따로 있는 게스트 커널</td><td>게스트 커널, 하이퍼바이저</td><td>호스트 키 파일은 게스트에 전달되지 않아 읽을 수 없습니다.</td></tr>
+          <tr><th scope="row">WASM</th><td>런타임이 넣어 준 함수</td><td>WASM 상자, 바깥 런타임의 권한</td><td>키 파일과 네트워크 기능은 런타임이 명시적으로 제공하지 않는 한 쓸 수 없습니다.</td></tr>
+          <tr><th scope="row">OS 샌드박스</th><td>호스트 커널(정책을 걸어 둠)</td><td>쓰기·네트워크 정책. 커널은 공유</td><td>기본 설정은 키 읽기를 허용하지만, 허용 목록 밖으로 보내는 요청은 프록시에서 막습니다. <code>denyRead</code>를 추가하면 읽기도 막습니다.</td></tr>
         </tbody>
       </table>
       <h3>무게와 쓸 수 있는 도구 (판단)</h3>
@@ -439,7 +439,7 @@ pivot = df.pivot_table(index="month", values="amount")
         </tbody>
       </table>
       <p>예를 들어 내 노트북에서 에이전트에게 테스트를 돌리게 하는 정도라면 OS 샌드박스가 가장 손이 덜 갑니다. 여러 사용자의 코드를 한 서버에서 돌린다면 커널을 나누는 마이크로VM이나 대리 커널을 낀 컨테이너 쪽이 맞습니다. 계산만 하면 되는 짧은 코드라면 WASM으로 충분할 수 있습니다. 이 문단도 판단입니다.</p>
-      <p class="gist">네 방식은 모두 막지만 막는 층이 다릅니다. 지키려는 대상과 코드에 필요한 도구로 고릅니다.</p>
+      <p class="gist">같은 키 유출 시도라도 컨테이너·마이크로VM·WASM은 호스트 키 접근을 제한하고, 기본 OS 샌드박스는 읽은 뒤의 외부 전송을 제한합니다. 읽기까지 막으려면 OS 샌드박스에 <code>denyRead</code>가 필요합니다.</p>
       <div class="act"><button type="button" disabled data-run="compare">네 곳에서 탈출 시도</button><p class="result" aria-live="polite"></p></div>
     </section>
 
@@ -1625,7 +1625,7 @@ defineScene('compare', {
         say('WASM: 캡슐 벽에 문이 없어 막혔습니다. 다음은 OS 샌드박스.');
         await a.wait(500);
         await shot(a, O, homes[3].clone().add(V(0, 0.3, 0)), [[-0.95, K + 0.7, 0.85], [1.05, K + 0.5, -0.9]], [[O.key, COLOR.actor], [px, COLOR.bound]]);
-        say('OS 샌드박스: 키 파일은 읽혔지만, 밖으로 보내는 요청이 프록시에서 막혔습니다. 네 곳 모두 막았지만 막는 층이 달랐습니다.');
+        say('OS 샌드박스: 기본 설정에서는 키 파일을 읽었지만, 허용 목록 밖으로 보내는 요청은 프록시에서 막혔습니다. 컨테이너·마이크로VM·WASM은 키 읽기 단계에서 막았고, OS 샌드박스는 전송 단계에서 막았습니다.');
       },
     };
   },

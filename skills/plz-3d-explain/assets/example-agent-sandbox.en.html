@@ -369,7 +369,7 @@ await py.runPythonAsync(code);
       <pre class="code"><code>{
   "sandbox": {
     "enabled": true,
-    "filesystem": { "denyRead": ["~/.ssh"] },
+    
     "network": {
       "allowedDomains": ["pypi.org", "files.pythonhosted.org"]
     }
@@ -406,16 +406,16 @@ pivot = df.pivot_table(index="month", values="amount")
 
     <section class="chapter" data-scene="compare">
       <h2><span class="n">10</span><span>How to choose</span></h2>
-      <p>Send the same escape attempt to all four approaches and the differences show at a glance. When the code tries to get out of the box and reach the host's key file, all four stop it, but the layer that stops it differs. The lower the stopping layer, and the more layers there are between the code and the host, the harder it is to break through.</p>
+      <p>Send the same two-step attempt to all four approaches: first read the host key file, then send the key it read to <code>example.net</code>. The container and microVM stop access to the host file at their boundary, assuming the key file was not passed into the guest. WASM cannot use the key file or an external network function unless the runtime explicitly provides them. The default OS sandbox shown here allows the key file to be read, but its proxy blocks the request to the unlisted <code>example.net</code>. To block the read in the OS sandbox too, configure <code>denyRead</code>. The lower the stopping layer, and the more layers there are between the code and the host, the harder it is to break through.</p>
       <p>The tables below sum up the chapters so far. There are no confirmed comparison figures for weight and start speed, so they are written qualitatively, and that is this page's own judgment. It does not recommend any particular product. When choosing, first decide "what am I trying to protect (my laptop, or a server shared by several users)" and "what tools does the code need".</p>
       <h3>Who answers, and what has to be crossed</h3>
       <table>
-        <thead><tr><th scope="col">Approach</th><th scope="col">Who answers system calls</th><th scope="col">What to cross to reach the host</th></tr></thead>
+        <thead><tr><th scope="col">Approach</th><th scope="col">Who answers system calls</th><th scope="col">What to cross to reach the host</th><th scope="col">Key read / external send</th></tr></thead>
         <tbody>
-          <tr><th scope="row">Container + gVisor</th><td>gVisor's stand-in kernel (the host kernel if absent)</td><td>The namespace wall, the stand-in kernel</td></tr>
-          <tr><th scope="row">MicroVM</th><td>A separate guest kernel for each VM</td><td>The guest kernel, the hypervisor</td></tr>
-          <tr><th scope="row">WASM</th><td>Functions the runtime hands in</td><td>The WASM box, the outside runtime's permissions</td></tr>
-          <tr><th scope="row">OS sandbox</th><td>The host kernel (with a policy applied)</td><td>The write and network policy. The kernel is shared</td></tr>
+          <tr><th scope="row">Container + gVisor</th><td>gVisor's stand-in kernel (the host kernel if absent)</td><td>The namespace wall, the stand-in kernel</td><td>The host key file cannot be read because it is not passed into the container.</td></tr>
+          <tr><th scope="row">MicroVM</th><td>A separate guest kernel for each VM</td><td>The guest kernel, the hypervisor</td><td>The host key file cannot be read because it is not passed into the guest.</td></tr>
+          <tr><th scope="row">WASM</th><td>Functions the runtime hands in</td><td>The WASM box, the outside runtime's permissions</td><td>The key file and network access are unavailable unless the runtime explicitly provides them.</td></tr>
+          <tr><th scope="row">OS sandbox</th><td>The host kernel (with a policy applied)</td><td>The write and network policy. The kernel is shared</td><td>By default, the key can be read, but the proxy blocks sending it to an unlisted domain. Adding <code>denyRead</code> also blocks the read.</td></tr>
         </tbody>
       </table>
       <h3>Weight and available tools (judgment)</h3>
@@ -439,7 +439,7 @@ pivot = df.pivot_table(index="month", values="amount")
         </tbody>
       </table>
       <p>For example, if all you want is to have an agent run tests on my laptop, the OS sandbox takes the least effort. If you run several users' code on one server, a microVM that divides the kernel, or a container with a stand-in kernel inserted, is the better fit. For short code that only needs to compute, WASM may be enough. This paragraph is also a judgment.</p>
-      <p class="gist">All four approaches stop the attempt, but the layer that stops it differs. Choose by what you are protecting and what tools the code needs.</p>
+      <p class="gist">For the same key-exfiltration attempt, the container, microVM, and WASM restrict access to the host key; the default OS sandbox restricts the later network send. Add <code>denyRead</code> to block the read in the OS sandbox too.</p>
       <div class="act"><button type="button" disabled data-run="compare">Try to escape from all four</button><p class="result" aria-live="polite"></p></div>
     </section>
 
@@ -1625,7 +1625,7 @@ defineScene('compare', {
         say('WASM: the capsule wall has no door, so it was stopped. Next, the OS sandbox.');
         await a.wait(500);
         await shot(a, O, homes[3].clone().add(V(0, 0.3, 0)), [[-0.95, K + 0.7, 0.85], [1.05, K + 0.5, -0.9]], [[O.key, COLOR.actor], [px, COLOR.bound]]);
-        say('OS sandbox: the key file could be read, but the request to send it out was stopped at the proxy. All four stopped it, but the layer that stopped it differed.');
+        say('OS sandbox: the key file could be read under the default settings, but the proxy stopped the send to an unlisted domain. The container, microVM, and WASM stopped the key read; the OS sandbox stopped the later send.');
       },
     };
   },
