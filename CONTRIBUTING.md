@@ -6,7 +6,7 @@ Thanks for your interest in plz. This repository is a collection of agent skills
 
 - **Translations.** The English README is the source of truth, and the Korean, Japanese, and Simplified Chinese versions are translations. Fixes and improvements are welcome.
 - **Bug reports.** Use the bug report issue form. Layout problems on generated pages are easiest to fix when you include the `__explainer.overlaps()` and `__explainer.clipped()` output.
-- **Skill improvements.** Better instructions, references, templates, and examples for an existing skill.
+- **Skill improvements.** Better instructions, references, templates, and examples for an existing skill. `plz-explain` replaces `plz-3d-explain`: send improvements to `plz-explain`; `plz-3d-explain` takes only fixes until it is removed in a later release.
 - **New skills.** See "Adding a new skill" below.
 
 ## Before you start
@@ -24,6 +24,9 @@ scripts/check-readme-translations.mjs                     translation consistenc
 scripts/check-templates.mjs                               template ENGINE and UI_TEXT consistency check
 scripts/check-templates.test.mjs                          tests for the template check
 scripts/check-3d-loading.test.mjs                         browser regression tests for 3D initialization
+scripts/check-explain-shell.test.mjs                      browser tests for the plz-explain page shell
+scripts/check-explain-svg.test.mjs                        browser tests for the plz-explain svg kit
+scripts/browser-harness.mjs                               shared page server, browser launch, and CDN route for the browser tests
 skills/<skill-name>/
   SKILL.md          instructions the agent follows (frontmatter: name, description)
   README*.md        English README plus ko, ja, and zh-CN translations
@@ -43,7 +46,8 @@ skills/<skill-name>/
 - Pages that a skill generates are written in the user's language.
 - Some non-English text is intentional. Do not translate it:
   - the `ko`, `ja`, and `zh-CN` dictionaries inside `UI_TEXT` in `assets/template.html`
-  - the body of the Korean demo page `assets/example-agent-sandbox.html`; `assets/example-agent-sandbox.en.html` is its intentional English counterpart. Do not translate either into another language, and mirror a content change to one of the two pages in the other
+  - in `skills/plz-explain/assets/`, the body of each Korean example page (`example-agent-sandbox.html`, `example-hash-join-sip.html`, `example-lost-update.html`, `example-bloom-filter.html`, `example-event-loop.html`); the `.en.html` page beside each is its intentional English counterpart. Do not translate either page of a pair into another language, and mirror a content change to one page of a pair in the other
+  - in `skills/plz-3d-explain/assets/`, the body of the Korean demo page `example-agent-sandbox.html` and its English counterpart `example-agent-sandbox.en.html`, under the same rules
   - the multilingual trigger phrases in the `description` of the `SKILL.md` frontmatter
 
 ## Checks to run
@@ -55,19 +59,21 @@ Run the check that matches what you changed. If a change fits more than one row,
 | Any `README.md` or translation | Run `node scripts/check-readme-translations.mjs` from the repository root. It needs Node.js. CI runs it on Node 22. |
 | `SKILL.md` or `references/` | There is no automated check. A maintainer reviews the change in the pull request, so explain what you changed and why. |
 | `TEXT` or `SCENES` in `assets/template.html` | Follow the validation procedure in the validation section of `SKILL.md`: serve the page from a local server, open it with a browser automation tool, check that `__explainer.overlaps()` and `__explainer.clipped()` return empty arrays for every chapter, check auto-play, and check the layout on a phone-sized screen. |
-| `ENGINE` in `assets/template.html` | Apply the same change to every `assets/example-*.html` (currently the Korean and the English example). The two `ENGINE` sections of the template (the block that starts at the `ENGINE` banner comment and ends before the `SCENES` banner, and the block from the `ENGINE (continued)` banner to the end of the file) are copied into each example verbatim. Run `node scripts/check-templates.mjs` from the repository root to confirm they still match; CI runs it too. Then run the validation procedure above on the template and every example. |
-| Anything in `scripts/` | Run `node --test scripts/*.test.mjs` from the repository root, and add or update tests for the behavior you changed. CI runs the same command. |
+| `ENGINE` in `assets/template.html` | Apply the same change to every `assets/example-*.html` of that skill (plz-explain: every example pair: sandbox, hash join, lost update, Bloom filter, and event loop; plz-3d-explain: the Korean and the English example). The two `ENGINE` sections of the template (the block that starts at the `ENGINE` banner comment and ends before the `SCENES` banner, and the block from the `ENGINE (continued)` banner to the end of the file) are copied into each example verbatim. In plz-explain, each kit's code sits between `KIT <kit> css|js` and `END KIT <kit> css|js` banner comments: its CSS in the `<style>` block and its JavaScript inside the first `ENGINE` section. An example keeps only the kit sections of the kits listed in `data-kits` on its stage, each verbatim and in the same place as in the template; the rest of the `ENGINE` sections (the shell) is verbatim in every example, and the template keeps every kit. Run `node scripts/check-templates.mjs` from the repository root to confirm they still match; CI runs it too. Then run the validation procedure above on the template and every example. |
+| Anything in `scripts/` | Run `npm test` from the repository root, and add or update tests for the behavior you changed. CI runs the same command. |
 | A new key in `UI_TEXT` | Add the key to all four languages: `en`, `ko`, `ja`, and `zh-CN`. Run `node scripts/check-templates.mjs` from the repository root; it reports keys that are missing from or extra in a language compared with `en`, and CI runs it too. |
 
-The script tests include Chromium checks for loading, successful initialization, CDN failure, retry, and WebGL initialization failure in the 3D template and both examples. Install their development dependencies and browser first:
+The script tests include Chromium checks for loading, successful initialization, CDN failure, retry, and WebGL initialization failure in each skill's template and its agent-sandbox example pair (Korean and English). Install their development dependencies and browser first:
 
 ```sh
 npm ci --ignore-scripts
 npx playwright install chromium
-node --test scripts/*.test.mjs
+npm test
 ```
 
-On Linux, use `npx playwright install --with-deps chromium` to install the browser's system dependencies too. The browser tests serve three.js from the pinned npm development dependency at the page's CDN URLs, so the tests do not depend on the live CDN. These dependencies are only for verification; generated pages still use a single HTML file with no build step.
+`npm test` runs `node --test --test-concurrency=1 scripts/*.test.mjs`: one test file at a time, because the browser suites each run a software-rendered Chromium and slow each other down when they run together.
+
+On Linux, use `npx playwright install --with-deps chromium` to install the browser's system dependencies too. The browser tests serve three.js and the pages' web fonts (IBM Plex Sans KR, IBM Plex Mono, and Hahmlet, from pinned `@fontsource` development dependencies) at the page's CDN URLs, so the tests do not depend on the live CDN, and text is measured and drawn with the same fonts on macOS, Linux, and Windows. Only Pretendard, used for the page headline, is left out (its stylesheet is served empty), and glyphs the web fonts lack fall back to the system fonts. You do not need to install extra fonts on Linux. These dependencies are only for verification; generated pages still use a single HTML file with no build step.
 
 Because the `ENGINE` sections ship inside every generated page, treat them as stable. Skill instructions tell the agent not to edit them when building a page, and changes to them should be deliberate and explained.
 

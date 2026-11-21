@@ -2,9 +2,12 @@
   "name": "plz-checks",
   "private": true,
   "scripts": {
-    "test": "node --test scripts/*.test.mjs"
+    "test": "node --test --test-concurrency=1 scripts/*.test.mjs"
   },
   "devDependencies": {
+    "@fontsource/hahmlet": "5.3.0",
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/ibm-plex-sans-kr": "5.3.0",
     "playwright": "1.58.2",
     "three": "0.170.0"
   }
